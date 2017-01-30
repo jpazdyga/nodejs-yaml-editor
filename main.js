@@ -57,6 +57,7 @@ app.post('/:param', function(req, res) {
 
 var h = req.body.hostgroup;
 var p = req.params.param;
+var owner = 1;
 
 global.hierafile = "/etc/puppet/hieradata/production/" + h + ".yaml";
 try {
@@ -75,6 +76,7 @@ if (p.split('.').length - 1 > 1){
   oldvalue = objectPath.get(config, [result1, result2, result3]);
   //var h = global.hierafile
   if ( oldvalue == null || typeof oldvalue == 'undefined' ) {
+    var owner = 0;
     dots = p.indexOf('.') !== -1;
     if ( dots == true ) {
       //var pattern = exec('echo ' + p, {silent:true}).exec('awk -F\'.\' \"{print $1}\"', {silent:true});
@@ -112,6 +114,7 @@ else
   console.log("Oldvalue:" + oldvalue );
 
   if ( oldvalue == null || typeof oldvalue == 'undefined' ) {
+    var owner = 0;
     var search = exec('find /etc/puppet/hieradata/ -name \"*.yaml\" -exec grep -H \"' + result + '\" {} \\;', {silent:true,timeout:5000}).exec('awk -F: \'{print $1}\'', {silent:true,timeout:5000}).exec('tr -d "\n"', {silent:true,timeout:5000});
     if (search) {
       oldvalue="No such parameter found.";
@@ -149,7 +152,7 @@ if ( description == null || typeof description == 'undefined' ) {
   var description = "No description available.";
 };
 
-var j = {dependency:[], found:[{"backend":"YAML","path":h,"url":""}],"value":oldvalue,"description":description};
+var j = {dependency:[], found:[{"backend":"YAML","path":h,"url":""}],"value":oldvalue,"description":description,"owner":owner};
 //console.log("J: " + JSON.stringify(j));
 global.hierafile = h;
 
@@ -288,6 +291,7 @@ var json_vlist = vlist.fn_json_allvars();
 
 app.get('/list_hiera', function(req, res) {
   console.log("Getting the list of existing hiera variables.");
+//  console.log("Data returned: " + json_vlist);
   res.send(json_vlist);
 });
 

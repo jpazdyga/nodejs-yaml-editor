@@ -1,5 +1,4 @@
 require('shelljs/global');
-require('should');
 
 var parse = require('csv-parse/lib/sync');
 var https = require('https');

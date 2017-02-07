@@ -1,6 +1,6 @@
 require('shelljs/global');
-require('should');
 
+var updateval = require('./updatevalues.js');
 var vlist = require('./variables.js');
 var parse = require('csv-parse/lib/sync');
 var https = require('https');
@@ -54,6 +54,9 @@ Construct response for existing value request
 */
 
 app.post('/:param', function(req, res) {
+
+//var lockfile = exec('touch /tmp/foreman_hiera_plugin_nodejs.lock', {silent:true});
+
 
 var h = req.body.hostgroup;
 var p = req.params.param;
@@ -152,13 +155,63 @@ if ( description == null || typeof description == 'undefined' ) {
   var description = "No description available.";
 };
 
-var j = {dependency:[], found:[{"backend":"YAML","path":h,"url":""}],"value":oldvalue,"description":description,"owner":owner};
+var j = {dependency:[], found:[{"backend":"YAML","path":h,"url":""}],"variable":p,"value":oldvalue,"description":description,"owner":owner};
 //console.log("J: " + JSON.stringify(j));
 global.hierafile = h;
 
 res.send(j);
 //delete pattern;
 //delete h;
+});
+
+
+/*
+Construct response for value change request - post_variables
+*/
+
+app.post('/post/the/variables', function(req, res) {
+
+// Debug the whole request:
+var data = req.body;
+
+var stringify = JSON.stringify(data)
+content = JSON.parse(stringify);
+console.log("content: " + content);
+
+var hostgroup = data.hostgroup;
+
+var filtered_keys = function(obj, filter) {
+  var key, keys = [];
+  for (key in obj) {
+    if (obj.hasOwnProperty(key) && filter.test(key)) {
+      keys.push(key);
+    }
+  }
+  return keys;
+}
+
+var filteredNames = filtered_keys(data, /value/);
+var to_send = [];
+
+for(var i in filteredNames) {
+  var variable = filteredNames[i];
+  var value = data[variable];
+  to_send.push(variable + ":\"" + value + "\"");
+}
+
+console.log("to_send: " + to_send + " length: " + to_send.length);
+a=0;
+for (var a = 0, len = to_send.length; a < len; a++) {
+  var fixedvariable = exec('echo ' + to_send[a], {silent:true}).exec('sed "s/hostgroup_value_//g"', {silent:true}).exec('cut -d: -f1', {silent:true}).exec('tr -d "\n"', {silent:true});
+  var fixedvalue = exec('echo ' + to_send[a], {silent:true}).exec('sed "s/hostgroup_value_//g"', {silent:true}).exec('cut -d: -f2', {silent:true}).exec('tr -d "\n"', {silent:true});
+//  console.log("Fvar: " + fixedvariable + " Fval: " + fixedvalue + " HG: " + hostgroup);
+  updateval.fn_change_values(fixedvariable, fixedvalue, hostgroup);
+  }
+
+var resp = "200 OK";
+
+res.send(resp);
+
 });
 
 /*
@@ -170,11 +223,15 @@ app.post('/:param/:value', function(req, res) {
 // Debug the whole request:
 // console.log(res.send(JSON.stringify(req.body, null, 4)));
 
-var h = global.hierafile;
+var preh = req.body.hostgroup;
 var p = req.params.param;
 var q = req.params.value;
 
-//console.log("Hierafile: " + h);
+global.hierafile = "/etc/puppet/hieradata/production/" + preh + ".yaml";
+
+var h = global.hierafile
+
+console.log("Hierafile: " + h);
 
   if (h) {
     h = global.hierafile;
@@ -291,7 +348,7 @@ var json_vlist = vlist.fn_json_allvars();
 
 app.get('/list_hiera', function(req, res) {
   console.log("Getting the list of existing hiera variables.");
-//  console.log("Data returned: " + json_vlist);
+  console.log("Data returned: " + json_vlist);
   res.send(json_vlist);
 });
 
